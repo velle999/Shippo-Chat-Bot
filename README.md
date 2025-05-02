@@ -17,7 +17,8 @@ A Twitch chatbot powered by LLaMA (via Ollama) or OpenAI that responds to !ask p
       "start-server.bat"
    ```
 
-3.```bash 
+3. Fill out form with info from - https://twitchtokengenerator.com/
+```bash 
 Enter Auth Info
 ```
 
