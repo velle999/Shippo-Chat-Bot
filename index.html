@@ -30,15 +30,17 @@
       color: #eee;
     }
     button {
-      background: #ff77e9;
-      color: black;
       font-weight: bold;
       cursor: pointer;
       margin-top: 1rem;
     }
-    button:disabled {
+    button.launch {
+      background: #ff77e9;
+      color: black;
+    }
+    button.reset {
       background: #444;
-      cursor: not-allowed;
+      color: white;
     }
     label {
       margin-top: 1.2rem;
@@ -58,28 +60,29 @@
 <body>
   <h1>🖤 ShippoBot Setup Panel 🐾</h1>
 
-  <form id="configForm">
+  <form id="configForm" autocomplete="off">
     <label>
       Twitch Username
-      <input type="text" id="twitchUsername" placeholder="e.g. bulletstormbunny" required />
+      <input type="text" id="twitchUsername" name="twitch_ignore" placeholder="e.g. bulletstormbunny" required autocomplete="off" />
     </label>
 
     <label>
       Twitch OAuth Token
-      <input type="text" id="twitchOauth" placeholder="oauth:xxxxxxxxxxxx" required />
+      <input type="text" id="twitchOauth" name="oauth_ignore" placeholder="oauth:xxxxxxxxxxxx" required autocomplete="off" />
     </label>
 
     <label>
       Channel to Join
-      <input type="text" id="twitchChannel" placeholder="channel name (usually same as username)" required />
+      <input type="text" id="twitchChannel" name="channel_ignore" placeholder="channel name (usually same as username)" required autocomplete="off" />
     </label>
 
     <label>
       OpenAI API Key (optional)
-      <input type="text" id="openaiKey" placeholder="sk-xxxxxxxx" />
+      <input type="text" id="openaiKey" name="openai_ignore" placeholder="sk-xxxxxxxx" autocomplete="off" />
     </label>
 
-    <button type="submit">🚀 Launch ShippoBot</button>
+    <button type="submit" class="launch">🚀 Launch ShippoBot</button>
+    <button type="button" class="reset" id="resetBtn">🧹 Reset Config</button>
   </form>
 
   <div id="log">✨ Log output will appear here...</div>
@@ -87,6 +90,7 @@
   <script>
     const form = document.getElementById('configForm');
     const log = document.getElementById('log');
+    const resetBtn = document.getElementById('resetBtn');
 
     // 🧠 Restore from localStorage
     ['twitchUsername', 'twitchOauth', 'twitchChannel', 'openaiKey'].forEach(id => {
@@ -105,7 +109,7 @@
 
       // 💾 Save inputs
       for (const key in config) {
-        localStorage.setItem(`twitch${key.charAt(0).toUpperCase() + key.slice(1)}`, config[key]);
+        localStorage.setItem(key, config[key]);
       }
 
       log.textContent = "🧠 Sending your vibes to the bot dimension...";
@@ -122,6 +126,15 @@
         console.error(err);
         log.textContent = `💥 Bot boot error: ${err.message}`;
       }
+    });
+
+    // 🧹 Reset config
+    resetBtn.addEventListener('click', () => {
+      ['twitchUsername', 'twitchOauth', 'twitchChannel', 'openaiKey'].forEach(id => {
+        localStorage.removeItem(id);
+        document.getElementById(id).value = '';
+      });
+      log.textContent = "🧼 Local config cleared.";
     });
   </script>
 </body>
