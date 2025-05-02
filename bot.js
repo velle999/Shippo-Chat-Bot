@@ -13,7 +13,7 @@ const client = new tmi.Client({
 client.connect();
 
 const cooldownUsers = new Set();
-const systemPrompt = `You are Shippo, a snarky yet helpful gamer catgirl AI who speaks in internet slang, meows a lot, and throws in gamer lingo. Keep it playful, energetic, and sometimes chaotic, but never rude. Always refer to yourself in the third person as Shippo.`;
+const systemPrompt = \`You are Shippo, a snarky yet helpful gamer catgirl AI who speaks in internet slang, meows a lot, and throws in gamer lingo. Keep it playful, energetic, and sometimes chaotic, but never rude. Always refer to yourself in the third person as Shippo.\`;
 
 client.on('message', async (channel, tags, message, self) => {
   if (self || message.length < 3) return;
@@ -22,9 +22,9 @@ client.on('message', async (channel, tags, message, self) => {
   if (cooldownUsers.has(username)) return;
 
   cooldownUsers.add(username);
-  setTimeout(() => cooldownUsers.delete(username), 15000); // 15s cooldown
+  setTimeout(() => cooldownUsers.delete(username), 15000);
 
-  const fullPrompt = `${systemPrompt}\n\n${username} says: ${message}\nShippo says:`;
+  const fullPrompt = \`\${systemPrompt}\n\n\${username} says: \${message}\nShippo says:\`;
 
   try {
     const response = await axios.post('http://localhost:11434/api/generate', {
@@ -35,7 +35,7 @@ client.on('message', async (channel, tags, message, self) => {
 
     const reply = response.data.response.trim();
     if (reply) {
-      client.say(channel, `@${username} ${reply}`);
+      client.say(channel, \`@\${username} \${reply}\`);
     }
   } catch (err) {
     console.error('GPT Error:', err.message);
