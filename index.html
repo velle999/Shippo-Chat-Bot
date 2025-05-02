@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shippo ChatBot Setup</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #111; color: #eee; padding: 2rem; }
+    input, button { padding: 0.5rem; margin: 0.5rem 0; width: 100%; max-width: 400px; }
+    label { display: block; margin-top: 1rem; }
+    #log { margin-top: 2rem; white-space: pre-line; background: #222; padding: 1rem; border-radius: 5px; }
+  </style>
+</head>
+<body>
+  <h1>🔧 ShippoChatBot Config</h1>
+  <form id="configForm">
+    <label>Twitch Username <input type="text" id="twitchUsername" required></label>
+    <label>Twitch OAuth Token <input type="text" id="twitchOauth" required></label>
+    <label>Channel to Join <input type="text" id="twitchChannel" required></label>
+    <label>OpenAI API Key (optional) <input type="text" id="openaiKey"></label>
+    <button type="submit">Launch Bot</button>
+  </form>
+
+  <div id="log"></div>
+
+  <script>
+    document.getElementById('configForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const config = {
+        username: document.getElementById('twitchUsername').value,
+        oauth: document.getElementById('twitchOauth').value,
+        channel: document.getElementById('twitchChannel').value,
+        openai: document.getElementById('openaiKey').value
+      };
+
+      const response = await fetch('/start-bot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+      });
+
+      const log = await response.text();
+      document.getElementById('log').textContent = log;
+    });
+  </script>
+</body>
+</html>
