@@ -9,14 +9,17 @@ A Twitch chatbot powered by LLaMA (via Ollama) or OpenAI that responds to !ask p
 1. Clone the repo:
    ```bash
    git clone https://github.com/velle999/Shippo-Chat-Bot
-   cd ShippoChatBot
+   cd Shippo-Chat-Bot
    ```
 
 2. Run it:
+   ```bash
       "start-server.bat"
    ```
 
-3. Enter Auth Info
+3.```bash 
+Enter Auth Info
+```
 
 
 Bot will auto-fallback to OpenAI if Ollama isn't running.
