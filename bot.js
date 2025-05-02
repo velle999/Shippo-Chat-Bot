@@ -12,17 +12,32 @@ const client = new tmi.Client({
 
 client.connect();
 
+const cooldownUsers = new Set();
+const systemPrompt = `You are Shippo, a snarky yet helpful gamer catgirl AI who speaks in internet slang, meows a lot, and throws in gamer lingo. Keep it playful, energetic, and sometimes chaotic, but never rude. Always refer to yourself in the third person as Shippo.`;
+
 client.on('message', async (channel, tags, message, self) => {
-  if (self || !message.startsWith('!ask')) return;
+  if (self || message.length < 3) return;
 
-  const prompt = message.slice(4).trim();
+  const username = tags.username.toLowerCase();
+  if (cooldownUsers.has(username)) return;
 
-  const response = await axios.post('http://localhost:11434/api/generate', {
-    model: 'llama2',
-    prompt,
-    stream: false
-  });
+  cooldownUsers.add(username);
+  setTimeout(() => cooldownUsers.delete(username), 15000); // 15s cooldown
 
-  const reply = response.data.response.trim();
-  client.say(channel, `@${tags.username} ${reply}`);
+  const fullPrompt = `${systemPrompt}\n\n${username} says: ${message}\nShippo says:`;
+
+  try {
+    const response = await axios.post('http://localhost:11434/api/generate', {
+      model: 'llama2',
+      prompt: fullPrompt,
+      stream: false
+    });
+
+    const reply = response.data.response.trim();
+    if (reply) {
+      client.say(channel, `@${username} ${reply}`);
+    }
+  } catch (err) {
+    console.error('GPT Error:', err.message);
+  }
 });
