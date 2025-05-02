@@ -1,128 +1,213 @@
-require('dotenv').config();
 const tmi = require('tmi.js');
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
+console.log("🐾 ShippoBot is booting...");
+
+// 📦 Load config.json if present
+const configPath = path.join(__dirname, 'config.json');
+let config = { ...process.env };
+
+if (fs.existsSync(configPath)) {
+  try {
+    const json = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    config = { ...config, ...json };
+    console.log("📦 Loaded config from config.json");
+  } catch (err) {
+    console.warn("⚠️ Failed to parse config.json:", err.message);
+  }
+}
+
+const {
+  TWITCH_USERNAME,
+  TWITCH_OAUTH,
+  TWITCH_CHANNEL,
+  OPENAI_API_KEY,
+  DISCORD_WEBHOOK_URL
+} = config;
+
+const BOT_PREFIX = config.BOT_PREFIX || "!";
+
+// 🔎 ENV Check
+console.log("[ENV CHECK]");
+console.log("TWITCH_USERNAME:", TWITCH_USERNAME || "(undefined)");
+console.log("TWITCH_OAUTH:", TWITCH_OAUTH ? TWITCH_OAUTH.slice(0, 10) + "..." : "(undefined)");
+console.log("TWITCH_CHANNEL:", TWITCH_CHANNEL || "(undefined)");
+console.log("BOT_PREFIX:", BOT_PREFIX);
+console.log("OPENAI_API_KEY:", OPENAI_API_KEY ? OPENAI_API_KEY.slice(0, 8) + "..." : "(not set)");
+console.log("DISCORD_WEBHOOK_URL:", DISCORD_WEBHOOK_URL ? DISCORD_WEBHOOK_URL.slice(0, 40) + "..." : "(not set)");
+
+if (!TWITCH_USERNAME || !TWITCH_OAUTH || !TWITCH_CHANNEL) {
+  console.error("❌ Missing required Twitch credentials.");
+  process.exit(1);
+}
+
+// 🔔 Discord Alerts
+async function sendDiscordAlert(content) {
+  if (!DISCORD_WEBHOOK_URL) return;
+  try {
+    await axios.post(DISCORD_WEBHOOK_URL, {
+      content: `🚨 **ShippoBot Alert** 🚨\n${content}`
+    });
+  } catch (err) {
+    console.error("❌ Discord alert failed:", err.message);
+  }
+}
+
+// 🤖 AI Logic
+async function askOpenAI(prompt) {
+  try {
+    const res = await axios.post(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: prompt }]
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+    return res.data.choices[0].message.content.trim();
+  } catch (err) {
+    console.error("🤖 OpenAI API error:", err.message);
+    return null;
+  }
+}
+
+// 🦙 LLaMA 3 with guardrails
+async function askLlama(prompt) {
+  const systemInstruction = `
+You are ShippoBot, an expressive, quirky, ADHD-coded emo catgirl chatbot who lives on Twitch.
+You're playful, curious, and unfiltered—but never inappropriate.
+Your style mixes helpful facts with sass, sparkles, and moody commentary.
+You love weather, music, stocks, and dramatic vibes.
+Only roleplay if explicitly asked.
+No hallucinating fandoms or characters unless the user starts it.
+Answer in short, punchy, emotionally colorful language that makes you sound like a chaotic but clever sidekick.
+`;
+
+  const fullPrompt = `${systemInstruction.trim()}
+User: ${prompt.trim()}
+Assistant:`;
+
+  try {
+    const res = await axios.post(
+      "http://localhost:11434/api/generate",
+      {
+        model: "llama3",
+        prompt: fullPrompt,
+        stream: false
+      },
+      {
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+    if (res.data?.response) {
+      console.log("🦙 LLaMA raw response:", res.data.response);
+      return res.data.response.trim();
+    } else {
+      console.warn("⚠️ LLaMA returned unexpected format:", res.data);
+      return "LLaMA returned nothing useful.";
+    }
+  } catch (err) {
+    console.error("🦙 LLaMA error:", err.message);
+    return "LLaMA failed to respond.";
+  }
+}
+
+async function askBot(prompt) {
+  console.log("🦙 Trying LLaMA first...");
+  const llamaResponse = await askLlama(prompt);
+  if (llamaResponse) return llamaResponse;
+
+  console.warn("🦙 LLaMA failed, attempting OpenAI fallback...");
+  if (OPENAI_API_KEY) {
+    const openaiResponse = await askOpenAI(prompt);
+    return openaiResponse || "All AI services failed to respond.";
+  }
+
+  return "No AI available to respond.";
+}
+
+// 🎮 Connect to Twitch
 const client = new tmi.Client({
+  options: { debug: true },
   identity: {
-    username: process.env.TWITCH_USERNAME,
-    password: process.env.TWITCH_OAUTH
+    username: TWITCH_USERNAME,
+    password: TWITCH_OAUTH
   },
-  channels: [process.env.TWITCH_CHANNEL]
+  channels: [TWITCH_CHANNEL.toLowerCase()]
 });
 
-client.connect().catch(err => {
-  console.error("🧨 Failed to connect to Twitch:", err);
+client.connect()
+  .then(() => {
+    console.log(`✅ Connected to Twitch channel: ${TWITCH_CHANNEL}`);
+    sendDiscordAlert(`✅ ShippoBot connected to **${TWITCH_CHANNEL}**`);
+    client.say(TWITCH_CHANNEL, `🐾 ShippoBot is live! Use '${BOT_PREFIX}ask' or say hi.`).catch(console.warn);
+  })
+  .catch(err => {
+    console.error("🧨 Twitch connection failed:", err.message);
+    sendDiscordAlert(`❌ Failed to connect: ${err.message}`);
+    process.exit(1);
+  });
+
+client.on('connected', (addr, port) => {
+  console.log(`📡 Connected via ${addr}:${port}`);
 });
 
-let currentMode = 'default'; // Modes: default, mention, chaos
+client.on('disconnected', async (reason) => {
+  console.warn(`⚠️ Disconnected from Twitch: ${reason}`);
+  await sendDiscordAlert(`⚠️ Disconnected: ${reason}`);
+  setTimeout(() => client.connect().catch(console.error), 5000);
+});
 
-const cooldowns = new Map();         // Tracks user cooldowns
-const recentTimestamps = [];         // Tracks global response timestamps
-
-const USER_COOLDOWN_MS = 15000;
-const GLOBAL_LIMIT = 5;
-const GLOBAL_WINDOW_MS = 30000;
-
+// 💬 Handle messages
 client.on('message', async (channel, tags, message, self) => {
   if (self) return;
 
   const username = tags.username.toLowerCase();
-  const now = Date.now();
-  const msg = message.trim().toLowerCase();
-  const mentioned = msg.includes('shippo');
-  const isAskCommand = msg.startsWith('!ask');
+  const text = message.trim();
+  const isCommand = text.startsWith(`${BOT_PREFIX}ask`);
+  const isMention = /shippo|bot|bulletstormbunny/i.test(text);
 
-  // 🎛️ Handle mode switching
-  if (msg.startsWith('!mode')) {
-    const [, newMode] = msg.split(/\s+/);
-    const validModes = ['default', 'mention', 'chaos'];
-    if (!validModes.includes(newMode)) {
-      client.say(channel, `@${username} Invalid mode. Choose: default, mention, or chaos.`);
-      return;
-    }
-    currentMode = newMode;
-    client.say(channel, `Switched to ${newMode.toUpperCase()} mode!`);
-    return;
-  }
+  if (!isCommand && !isMention) return;
 
-  // 🕒 Optional: !cooldown command
-  if (msg === '!cooldown') {
-    const last = cooldowns.get(username);
-    const left = last ? Math.max(0, USER_COOLDOWN_MS - (now - last)) : 0;
-    if (left > 0) {
-      client.say(channel, `@${username} you can speak to Shippo again in ${Math.ceil(left / 1000)}s.`);
-    } else {
-      client.say(channel, `@${username} you're free to ask me anything~ nya 🐾`);
-    }
-    return;
-  }
-
-  // 🧠 Mode filtering
-  if (
-    (currentMode === 'default' && !isAskCommand) ||
-    (currentMode === 'mention' && !mentioned)
-  ) return;
-
-  const prompt = isAskCommand ? message.slice(4).trim() : message.trim();
-  if (!prompt) return;
-
-  // 🌍 Global rate limiting
-  const recent = recentTimestamps.filter(ts => now - ts < GLOBAL_WINDOW_MS);
-  if (recent.length >= GLOBAL_LIMIT) {
-    console.log("🌐 Global rate limit hit — throttling response");
-    return;
-  }
-
-  // 🧍 Per-user cooldown check
-  if (cooldowns.has(username)) {
-    const elapsed = now - cooldowns.get(username);
-    if (elapsed < USER_COOLDOWN_MS) {
-      const left = Math.ceil((USER_COOLDOWN_MS - elapsed) / 1000);
-      client.say(channel, `@${username} slow down, nya~ You can talk again in ${left}s.`);
-      return;
-    }
-  }
-
-  // ✅ Record timestamp and proceed
-  cooldowns.set(username, now);
-  recentTimestamps.push(now);
+  const prompt = isCommand ? text.replace(`${BOT_PREFIX}ask`, '').trim() : text;
+  if (!prompt || prompt.length < 4) return;
 
   try {
-    const reply = await getResponse(prompt);
+    const reply = await askBot(prompt);
     client.say(channel, `@${username} ${reply}`);
   } catch (err) {
-    console.error("🧨 GPT error:", err);
-    client.say(channel, `@${username} Shippo’s brain glitched out… try again later, nya~`);
+    console.error("🔥 Bot response error:", err.message);
+    client.say(channel, `@${username} something broke, sorry!`);
   }
 });
 
-// 🧽 Cleanup recentTimestamps list
+// 🔒 Safety Nets
+process.on('unhandledRejection', async (reason) => {
+  console.error("💥 Unhandled Rejection:", reason);
+  await sendDiscordAlert(`💥 Unhandled Rejection:\n${reason}`);
+  process.exit(1);
+});
+
+process.on('uncaughtException', async (err) => {
+  console.error("💥 Uncaught Exception:", err);
+  await sendDiscordAlert(`💥 Uncaught Exception:\n${err.stack}`);
+  process.exit(1);
+});
+
+// 🫀 Heartbeat
 setInterval(() => {
-  const now = Date.now();
-  while (recentTimestamps.length && now - recentTimestamps[0] > GLOBAL_WINDOW_MS) {
-    recentTimestamps.shift();
-  }
-}, 5000);
+  console.log("🫀 ShippoBot heartbeat");
+}, 1000 * 60 * 5);
 
-// 🔮 Shippo AI personality response
-async function getResponse(prompt) {
-  const systemPrompt = `You are Shippo, a snarky yet helpful gamer catgirl AI who speaks in internet slang, meows a lot, and throws in gamer lingo. Keep it playful, energetic, and sometimes chaotic, but never rude. Always refer to yourself in the third person as Shippo.`;
-
-  try {
-    const res = await axios.post('http://localhost:11434/api/generate', {
-      model: 'llama2',
-      prompt: `${systemPrompt}\nUser says: ${prompt}\nShippo says:`,
-      stream: false
-    });
-    return res.data.response.trim();
-  } catch (err) {
-    console.warn("⚠️ Ollama failed, trying OpenAI...");
-    if (process.env.OPENAI_API_KEY) {
-      const openaiRes = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-4',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: prompt }
-        ]
-      }, {
-        headers:
+console.log(
+  "💡 AI Mode: Prioritized LLaMA3 with OpenAI fallback" +
+    (OPENAI_API_KEY ? " (OpenAI key detected)" : " (no OpenAI key found)")
+);
