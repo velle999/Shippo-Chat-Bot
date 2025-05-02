@@ -1,0 +1,13 @@
+{
+  "name": "shippo-chatbot",
+  "version": "1.0.0",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "axios": "^1.5.1",
+    "dotenv": "^16.5.0",
+    "tmi.js": "^1.8.5"
+  }
+}
