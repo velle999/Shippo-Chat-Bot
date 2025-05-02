@@ -8,7 +8,7 @@ A Twitch chatbot powered by LLaMA (via Ollama) or OpenAI that responds to !ask p
 
 1. Clone the repo:
    ```bash
-   git clone https://github.com/YOURNAME/ShippoChatBot
+   git clone https://github.com/velle999/Shippo-Chat-Bot
    cd ShippoChatBot
    ```
 
