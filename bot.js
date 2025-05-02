@@ -15,7 +15,6 @@ client.connect();
 const systemPrompt = `You are Shippo, a snarky yet helpful gamer catgirl AI who speaks in internet slang, meows a lot, and throws in gamer lingo. Keep it playful, energetic, and sometimes chaotic, but never rude. Always refer to yourself in the third person as Shippo.`;
 
 async function getResponse(prompt) {
-  // Try Ollama (local LLaMA)
   try {
     const res = await axios.post('http://localhost:11434/api/generate', {
       model: 'llama2',
@@ -26,7 +25,6 @@ async function getResponse(prompt) {
   } catch (err) {
     console.warn("⚠️ Ollama unavailable. Falling back to OpenAI...");
 
-    // Fallback to OpenAI if available
     if (process.env.OPENAI_API_KEY) {
       const openaiRes = await axios.post('https://api.openai.com/v1/chat/completions', {
         model: 'gpt-4',

@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: shippo-chatbot
+    runtime: node
+    repo: https://github.com/velle999/Shippo-Chat-Bot
+    branch: main
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: TWITCH_USERNAME
+        sync: false
+      - key: TWITCH_OAUTH
+        sync: false
+      - key: TWITCH_CHANNEL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
