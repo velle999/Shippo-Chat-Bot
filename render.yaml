@@ -6,7 +6,8 @@ services:
     branch: main
     plan: free
     buildCommand: npm install
-    startCommand: npm start
+    startCommand: node server.js
+    autoDeploy: true
     envVars:
       - key: TWITCH_USERNAME
         sync: false

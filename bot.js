@@ -1,3 +1,4 @@
+require('dotenv').config();
 const tmi = require('tmi.js');
 const axios = require('axios');
 const fs = require('fs');
@@ -7,17 +8,25 @@ console.log("🐾 ShippoBot is booting...");
 
 // 📦 Load config.json if present
 const configPath = path.join(__dirname, 'config.json');
-let config = { ...process.env };
+let config = {};
 
 if (fs.existsSync(configPath)) {
   try {
     const json = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    config = { ...config, ...json };
+    config = { ...json };
     console.log("📦 Loaded config from config.json");
   } catch (err) {
     console.warn("⚠️ Failed to parse config.json:", err.message);
   }
 }
+
+// Merge .env vars as fallback
+config.TWITCH_USERNAME = config.TWITCH_USERNAME || process.env.TWITCH_USERNAME;
+config.TWITCH_OAUTH = config.TWITCH_OAUTH || process.env.TWITCH_OAUTH;
+config.TWITCH_CHANNEL = config.TWITCH_CHANNEL || process.env.TWITCH_CHANNEL;
+config.OPENAI_API_KEY = config.OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+config.DISCORD_WEBHOOK_URL = config.DISCORD_WEBHOOK_URL || process.env.DISCORD_WEBHOOK_URL;
+config.BOT_PREFIX = config.BOT_PREFIX || process.env.BOT_PREFIX || "!";
 
 const {
   TWITCH_USERNAME,
@@ -27,7 +36,7 @@ const {
   DISCORD_WEBHOOK_URL
 } = config;
 
-const BOT_PREFIX = config.BOT_PREFIX || "!";
+const BOT_PREFIX = config.BOT_PREFIX;
 
 // 🔎 ENV Check
 console.log("[ENV CHECK]");
@@ -42,6 +51,9 @@ if (!TWITCH_USERNAME || !TWITCH_OAUTH || !TWITCH_CHANNEL) {
   console.error("❌ Missing required Twitch credentials.");
   process.exit(1);
 }
+
+// The rest of the file (AI logic, Twitch client, message handling, etc.) stays the same.
+
 
 // 🔔 Discord Alerts
 async function sendDiscordAlert(content) {
@@ -166,9 +178,32 @@ client.on('disconnected', async (reason) => {
   setTimeout(() => client.connect().catch(console.error), 5000);
 });
 
+// 💤 Idle Chat Detection
+let lastMessageTime = Date.now();
+const IDLE_THRESHOLD = 5 * 60 * 1000; // 5 minutes
+const IDLE_CHECK_INTERVAL = 60 * 1000; // every 1 minute
+
+const convoStarters = [
+  "🦴 Is it nap time or chaos o'clock?",
+  "🔥 Anyone want to summon the bot's chaotic mode?",
+  "🌈 What's the mood today: stormy, spicy, or sleepy?",
+  "🎮 Favorite game no one talks about?",
+  "📈 Who’s watching stonks today? I smell volatility~"
+];
+
+setInterval(() => {
+  if (Date.now() - lastMessageTime > IDLE_THRESHOLD) {
+    const msg = convoStarters[Math.floor(Math.random() * convoStarters.length)];
+    client.say(TWITCH_CHANNEL, msg).catch(console.warn);
+    lastMessageTime = Date.now(); // reset so it doesn’t spam
+  }
+}, IDLE_CHECK_INTERVAL);
+
 // 💬 Handle messages
 client.on('message', async (channel, tags, message, self) => {
   if (self) return;
+
+  lastMessageTime = Date.now(); // reset idle timer
 
   const username = tags.username.toLowerCase();
   const text = message.trim();

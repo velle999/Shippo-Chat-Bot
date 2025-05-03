@@ -17,7 +17,7 @@
       color: #ff77e9;
       text-align: center;
     }
-    input, button {
+    input, select, button {
       padding: 0.6rem;
       margin-top: 0.5rem;
       width: 100%;
@@ -25,7 +25,7 @@
       border-radius: 4px;
       font-size: 1rem;
     }
-    input {
+    input, select {
       background: #222;
       color: #eee;
     }
@@ -46,6 +46,14 @@
       margin-top: 1.2rem;
       display: block;
     }
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1.2rem;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
     #log {
       margin-top: 2rem;
       background: #1a1a1a;
@@ -63,22 +71,36 @@
   <form id="configForm" autocomplete="off">
     <label>
       Twitch Username
-      <input type="text" id="twitchUsername" name="twitch_ignore" placeholder="e.g. bulletstormbunny" required autocomplete="off" />
+      <input type="text" id="twitchUsername" placeholder="e.g. bulletstormbunny" required autocomplete="off" />
     </label>
 
     <label>
       Twitch OAuth Token
-      <input type="text" id="twitchOauth" name="oauth_ignore" placeholder="oauth:xxxxxxxxxxxx" required autocomplete="off" />
+      <input type="text" id="twitchOauth" placeholder="oauth:xxxxxxxxxxxx" required autocomplete="off" />
     </label>
 
     <label>
       Channel to Join
-      <input type="text" id="twitchChannel" name="channel_ignore" placeholder="channel name (usually same as username)" required autocomplete="off" />
+      <input type="text" id="twitchChannel" placeholder="channel name (usually same as username)" required autocomplete="off" />
     </label>
 
     <label>
       OpenAI API Key (optional)
-      <input type="text" id="openaiKey" name="openai_ignore" placeholder="sk-xxxxxxxx" autocomplete="off" />
+      <input type="text" id="openaiKey" placeholder="sk-xxxxxxxx" autocomplete="off" />
+    </label>
+
+    <label>
+      AI Mode
+      <select id="aiMode">
+        <option value="llama3">🦙 LLaMA3 (local)</option>
+        <option value="openai">🤖 OpenAI (cloud)</option>
+        <option value="hybrid" selected>⚡ Hybrid (try LLaMA3, fallback to OpenAI)</option>
+      </select>
+    </label>
+
+    <label class="checkbox-label" title="Stores your bot config locally in this browser only.">
+      <input type="checkbox" id="saveCreds" checked />
+      Save credentials locally
     </label>
 
     <button type="submit" class="launch">🚀 Launch ShippoBot</button>
@@ -91,25 +113,46 @@
     const form = document.getElementById('configForm');
     const log = document.getElementById('log');
     const resetBtn = document.getElementById('resetBtn');
+    const saveCreds = document.getElementById('saveCreds');
+
+    const fields = {
+      twitchUsername: 'input',
+      twitchOauth: 'input',
+      twitchChannel: 'input',
+      openaiKey: 'input',
+      aiMode: 'select'
+    };
 
     // 🧠 Restore from localStorage
-    ['twitchUsername', 'twitchOauth', 'twitchChannel', 'openaiKey'].forEach(id => {
-      const saved = localStorage.getItem(id);
-      if (saved) document.getElementById(id).value = saved;
+    window.addEventListener('DOMContentLoaded', () => {
+      if (saveCreds.checked) {
+        for (const [id, type] of Object.entries(fields)) {
+          const saved = localStorage.getItem(id);
+          if (saved !== null) {
+            const el = document.getElementById(id);
+            if (el) el.value = saved;
+          }
+        }
+      }
     });
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+
       const config = {
         username: document.getElementById('twitchUsername').value.trim(),
         oauth: document.getElementById('twitchOauth').value.trim(),
         channel: document.getElementById('twitchChannel').value.trim(),
-        openai: document.getElementById('openaiKey').value.trim()
+        openai: document.getElementById('openaiKey').value.trim(),
+        aiMode: document.getElementById('aiMode').value
       };
 
-      // 💾 Save inputs
-      for (const key in config) {
-        localStorage.setItem(key, config[key]);
+      // 💾 Save to localStorage
+      if (saveCreds.checked) {
+        for (const id of Object.keys(fields)) {
+          const el = document.getElementById(id);
+          if (el) localStorage.setItem(id, el.value.trim());
+        }
       }
 
       log.textContent = "🧠 Sending your vibes to the bot dimension...";
@@ -130,10 +173,11 @@
 
     // 🧹 Reset config
     resetBtn.addEventListener('click', () => {
-      ['twitchUsername', 'twitchOauth', 'twitchChannel', 'openaiKey'].forEach(id => {
+      for (const id of Object.keys(fields)) {
         localStorage.removeItem(id);
-        document.getElementById(id).value = '';
-      });
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      }
       log.textContent = "🧼 Local config cleared.";
     });
   </script>
