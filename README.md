@@ -12,18 +12,17 @@ A Twitch chatbot powered by LLaMA (via Ollama) or OpenAI that responds to !ask p
    cd Shippo-Chat-Bot
    ```
 
-2. Run it:
+2. ollama pull llama3
+
+
+3. Run it:
    ```bash
       "start-server.bat"
    ```
 
-3. Fill out form with info from - https://twitchtokengenerator.com/
+4. Fill out form with info from - https://twitchtokengenerator.com/
 ```bash 
 Enter Auth Info
 ```
-
-
-Bot will auto-fallback to OpenAI if Ollama isn't running.
-
 
 ## 🧠 One-Click Deploy
